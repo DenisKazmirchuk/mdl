@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            background-color: #f4f4f4;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 400px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #555;
+        }
+
+        input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+
+        button {
+            width: 100%;
+            padding: 0.75rem;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .toast {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            padding: 1rem;
+            border-radius: 4px;
+            color: white;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .toast-success {
+            background-color: #28a745;
+        }
+
+        .toast-error {
+            background-color: #dc3545;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+            }
+            to {
+                transform: translateX(0);
+            }
+        }
+
+        .view {
+            display: none;
+        }
+
+        .view.active {
+            display: block;
+        }
+
+        .nav-links {
+            text-align: center;
+            margin-top: 1rem;
+        }
+
+        .nav-links a {
+            color: #007bff;
+            text-decoration: none;
+            margin: 0 0.5rem;
+        }
+
+        .nav-links a:hover {
+            text-decoration: underline;
+        }
+
+        .message {
+            text-align: center;
+            margin: 1rem 0;
+            padding: 1rem;
+            border-radius: 4px;
+        }
+
+        .message.info {
+            background-color: #e3f2fd;
+            color: #0d47a1;
+        }
+
+        .message.success {
+            background-color: #e8f5e9;
+            color: #1b5e20;
+        }
+
+        .message.error {
+            background-color: #ffebee;
+            color: #b71c1c;
+        }
+    </style>
+</head>
+<body>
+    <div id="loginView" class="container view">
+        <h1>Login</h1>
+        <div id="loginMessage" class="message info" style="display: none;"></div>
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="loginEmail">Email</label>
+                <input type="email" id="loginEmail" required>
+            </div>
+            <div class="form-group">
+                <label for="loginPassword">Password</label>
+                <input type="password" id="loginPassword" required>
+            </div>
+            <button type="submit">Login</button>
+        </form>
+        <div class="nav-links">
+            <a href="#" onclick="showView('registerView')">Don't have an account? Register</a>
+        </div>
+    </div>
+
+    <div id="registerView" class="container view">
+        <h1>Register</h1>
+        <div id="registerMessage" class="message info" style="display: none;"></div>
+        <form id="registerForm">
+            <div class="form-group">
+                <label for="registerEmail">Email</label>
+                <input type="email" id="registerEmail" required>
+            </div>
+            <div class="form-group">
+                <label for="registerPassword">Password</label>
+                <input type="password" id="registerPassword" required>
+            </div>
+            <button type="submit">Register</button>
+        </form>
+        <div class="nav-links">
+            <a href="#" onclick="showView('loginView')">Already have an account? Login</a>
+        </div>
+    </div>
+
+    <div id="dashboardView" class="container view">
+        <h1>Dashboard</h1>
+        <p id="welcomeMessage"></p>
+        <button onclick="logout()">Logout</button>
+    </div>
+
+    <script>
+        // API configuration
+        const API_URL = 'http://localhost:5000/api';
+
+        // Show toast message
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+
+        // Show message in view
+        function showMessage(viewId, message, type = 'info') {
+            const messageElement = document.getElementById(`${viewId}Message`);
+            if (messageElement) {
+                messageElement.textContent = message;
+                messageElement.className = `message ${type}`;
+                messageElement.style.display = 'block';
+            }
+        }
+
+        // View management
+        function showView(viewId) {
+            document.querySelectorAll('.view').forEach(view => {
+                view.classList.remove('active');
+            });
+            document.getElementById(viewId).classList.add('active');
+            
+            // Clear messages when switching views
+            document.querySelectorAll('.message').forEach(message => {
+                message.style.display = 'none';
+            });
+        }
+
+        // Check authentication status
+        async function checkAuth() {
+            try {
+                const response = await fetch(`${API_URL}/auth/me`, {
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('welcomeMessage').textContent = `Welcome, ${data.user.email}!`;
+                    showView('dashboardView');
+                } else {
+                    showView('loginView');
+                }
+            } catch (error) {
+                showView('loginView');
+            }
+        }
+
+        // Login form submission
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+
+            try {
+                const response = await fetch(`${API_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showMessage('login', 'Login successful!', 'success');
+                    setTimeout(() => checkAuth(), 1000);
+                } else {
+                    showMessage('login', data.message, 'error');
+                }
+            } catch (error) {
+                showMessage('login', 'Login failed', 'error');
+            }
+        });
+
+        // Register form submission
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('registerEmail').value;
+            const password = document.getElementById('registerPassword').value;
+
+            try {
+                const response = await fetch(`${API_URL}/auth/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showMessage('register', data.message, 'success');
+                    document.getElementById('registerForm').reset();
+                    setTimeout(() => checkAuth(), 1500);
+                } else {
+                    showMessage('register', data.message, 'error');
+                }
+            } catch (error) {
+                showMessage('register', 'Registration failed', 'error');
+            }
+        });
+
+        // Logout function
+        async function logout() {
+            try {
+                const response = await fetch(`${API_URL}/auth/logout`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+
+                const data = await response.json();
+                showMessage('dashboard', 'Logout successful!', 'success');
+                setTimeout(() => {
+                    showView('loginView');
+                }, 1000);
+            } catch (error) {
+                showMessage('dashboard', 'Logout failed', 'error');
+            }
+        }
+
+        // Check authentication on page load
+        checkAuth();
+    </script>
+</body>
+</html> 
